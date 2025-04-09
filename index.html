@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Missão Calendário - Aventura no Tempo!</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background: url('imag/fundo.jpg') no-repeat center center fixed;
+      background-size: cover;
+      text-align: center;
+      padding: 30px;
+      overflow-x: hidden;
+      color: #000;
+    }
+    #game-box {
+      background: #fff;
+      border-radius: 30px;
+      padding: 40px;
+      box-shadow: 0 0 20px #555;
+      display: inline-block;
+      max-width: 600px;
+      font-size: 20px;
+    }
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 16px 32px;
+      margin: 20px 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 20px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    input[type="date"],
+    input[type="number"] {
+      padding: 14px;
+      font-size: 18px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      width: 80%;
+      margin-top: 10px;
+      text-transform: uppercase; /* Força letras maiúsculas */
+    }
+    input[type="date"]::-webkit-datetime-edit {
+      text-transform: uppercase; /* Chrome */
+    }
+    input[type="date"]::-moz-datetime-edit {
+      text-transform: uppercase; /* Firefox */
+    }
+
+    #map-container {
+      position: relative;
+      height: 150px;
+      margin-bottom: 20px;
+    }
+    #map {
+      display: flex;
+      justify-content: center;
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+    }
+    .tile {
+      width: 40px;
+      height: 40px;
+      background-color: #ddd;
+      border: 2px solid #aaa;
+      margin: 2px;
+      z-index: 1;
+    }
+    #character {
+      width: 40px;
+      height: 60px;
+      background: url('https://api.dicebear.com/7.x/adventurer/svg?seed=Hero') no-repeat center center;
+      background-size: contain;
+      position: absolute;
+      bottom: 50px;
+      transition: all 0.5s ease;
+      z-index: 2;
+    }
+    .final-animation {
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+
+    /* ⬆️ Animação suave na setinha para cima */
+    .arrow-up {
+      font-size: 30px;
+      margin: 0;
+      animation: blink 1s infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <h1>🗓️ MISSÃO CALENDÁRIO</h1>
+
+  <div id="map-container">
+    <div id="character"></div>
+    <div id="map"></div>
+  </div>
+
+  <div id="game-box">
+    <p id="question"></p>
+    <div id="inputs"></div>
+    <p class="arrow-up">⬆️</p>
+    <p><em>DIGITE A RESPOSTA AQUI:</em></p>
+    <button onclick="checkAnswer()">VERIFICAR</button>
+    <button onclick="restartGame()">🔁 REINICIAR</button>
+    <p id="feedback"></p>
+    <p id="score">PONTOS: 0</p>
+  </div>
+
+  <audio id="acerto" src="sound/acerto.mp3"></audio>
+  <audio id="erro" src="sound/erro.mp3"></audio>
+  <audio id="final" src="sound/final.mp3"></audio>
+
+  <script>
+    const questions = [
+      { question: "A VIAGEM COMEÇOU EM 10/03/2025 E TERMINOU EM 25/03/2025. QUANTOS DIAS DUROU?", answer: "15", type: "text" },
+      { question: "PREENCHA A DATA DE INÍCIO SE A DURAÇÃO FOI DE 10 DIAS E TERMINOU EM 20/04/2025.", answer: "2025-04-10", type: "start-date" },
+      { question: "COMPLETE A DATA FINAL: INÍCIO EM 01/12/2025 E DURAÇÃO DE 12 DIAS.", answer: "2025-12-13", type: "end-date" },
+      { question: "QUAL A DURAÇÃO DE UM EVENTO QUE COMEÇA EM 2025-08-01 E TERMINA EM 2025-08-21?", answer: "20", type: "text" },
+      { question: "O CURSO COMEÇOU EM 05/01/2025 E TERMINOU EM 20/01/2025. QUANTOS DIAS DUROU?", answer: "15", type: "text" },
+      { question: "UM EVENTO COMEÇOU EM 2025-06-15 E TEVE DURAÇÃO DE 7 DIAS. QUAL FOI A DATA DE TÉRMINO?", answer: "2025-06-22", type: "end-date" },
+      { question: "SE UM CAMPEONATO TERMINOU EM 2025-10-10 E DUROU 5 DIAS, QUANDO ELE COMEÇOU?", answer: "2025-10-05", type: "start-date" },
+      { question: "A GINCANA ESCOLAR COMEÇOU EM 01/09/2025 E TERMINOU EM 10/09/2025. QUAL FOI A DURAÇÃO?", answer: "9", type: "text" },
+      { question: "O ACAMPAMENTO TERMINOU EM 2025-07-20. SABENDO QUE DUROU 10 DIAS, QUAL FOI O INÍCIO?", answer: "2025-07-10", type: "start-date" },
+      { question: "SE UM CURSO COMEÇOU EM 2025-11-05 E TEVE DURAÇÃO DE 20 DIAS, QUANDO TERMINOU?", answer: "2025-11-25", type: "end-date" },
+      { question: "UMA FEIRA OCORREU DE 02/05/2025 A 12/05/2025. QUAL FOI A DURAÇÃO?", answer: "10", type: "text" },
+      { question: "UMA ATIVIDADE COMEÇOU EM 2025-03-01 E DUROU 18 DIAS. QUANDO TERMINOU?", answer: "2025-03-19", type: "end-date" },
+      { question: "SE UMA VIAGEM COMEÇOU EM 2025-09-09 E TERMINOU EM 2025-09-19, QUAL FOI A DURAÇÃO?", answer: "10", type: "text" },
+      { question: "A MARATONA FOI DE 05/06/2025 A 15/06/2025. QUANTOS DIAS DUROU?", answer: "10", type: "text" },
+      { question: "SE UM FESTIVAL COMEÇOU EM 2025-12-01 E TEVE DURAÇÃO DE 5 DIAS, QUANDO TERMINOU?", answer: "2025-12-06", type: "end-date" }
+    ];
+
+    let current = 0;
+    let score = 0;
+
+    const map = document.getElementById("map");
+    const character = document.getElementById("character");
+
+    function createMap() {
+      map.innerHTML = "";
+      for (let i = 0; i < questions.length; i++) {
+        const tile = document.createElement("div");
+        tile.className = "tile";
+        tile.id = `tile-${i}`;
+        map.appendChild(tile);
+      }
+      positionCharacter();
+    }
+
+    function positionCharacter() {
+      const tile = document.getElementById(`tile-${current}`);
+      if (tile) {
+        const offsetLeft = tile.offsetLeft;
+        character.style.left = `${offsetLeft}px`;
+        character.style.transition = "transform 0.4s ease, left 0.4s ease";
+        character.style.transform = "translateY(-20px)";
+        setTimeout(() => {
+          character.style.transform = "translateY(0)";
+        }, 200);
+      }
+    }
+
+    function loadQuestion() {
+      const q = questions[current];
+      document.getElementById("question").innerText = q.question;
+      const inputArea = document.getElementById("inputs");
+      inputArea.innerHTML = "";
+      if (q.type === "text") {
+        inputArea.innerHTML = '<input type="number" id="userAnswer">';
+      } else {
+        inputArea.innerHTML = '<input type="date" id="userAnswer">';
+      }
+    }
+
+    function checkAnswer() {
+      const q = questions[current];
+      const userValue = document.getElementById("userAnswer").value;
+      const feedback = document.getElementById("feedback");
+      const acerto = document.getElementById("acerto");
+      const erro = document.getElementById("erro");
+      const final = document.getElementById("final");
+
+      if (userValue === q.answer) {
+        score += 10;
+        document.getElementById("score").innerText = `PONTOS: ${score}`;
+        feedback.innerText = "✅ ACERTOU!";
+        acerto.play();
+        current++;
+        if (current < questions.length) {
+          setTimeout(() => {
+            feedback.innerText = "";
+            positionCharacter();
+            loadQuestion();
+          }, 1500);
+        } else {
+          setTimeout(() => {
+            feedback.innerHTML = `<strong class="final-animation">🎉 FIM DO JOGO! VOCÊ FEZ ${score} PONTOS!</strong>`;
+            document.getElementById("inputs").innerHTML = "";
+            final.play();
+          }, 1500);
+        }
+      } else {
+        score -= 5;
+        document.getElementById("score").innerText = `PONTOS: ${score}`;
+        feedback.innerText = `❌ ERROU!`;
+        erro.play();
+      }
+    }
+
+    function restartGame() {
+      score = 0;
+      current = 0;
+      document.getElementById("score").innerText = "PONTOS: 0";
+      document.getElementById("feedback").innerText = "";
+      createMap();
+      loadQuestion();
+    }
+
+    createMap();
+    loadQuestion();
+  </script>
+</body>
+</html>
